@@ -8,6 +8,9 @@ import android.net.*;
 import android.os.*;
 import android.os.Build.*;
 import android.telephony.*;
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import arc.*;
 import arc.backend.android.*;
 import arc.files.*;
@@ -16,7 +19,10 @@ import arc.struct.*;
 import arc.util.*;
 import dalvik.system.*;
 import mindustry.*;
+import mindustry.android.controller.AndroidControllerProvider;
 import mindustry.game.EventType.*;
+import mindustry.input.controller.ControllerConfig;
+import mindustry.input.controller.ControllerSupport;
 import mindustry.net.*;
 import mindustry.ui.*;
 import mindustry.ui.FileChooser.*;
@@ -33,6 +39,8 @@ public class AndroidLauncher extends AndroidApplication{
     boolean doubleScaleTablets = true;
     FileChooserDialog chooser;
     Runnable permCallback;
+    public static AndroidControllerProvider controllerProvider;
+    private static AndroidLauncher instance;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -51,6 +59,16 @@ public class AndroidLauncher extends AndroidApplication{
         });
 
         super.onCreate(savedInstanceState);
+        instance = this;
+        // initialize controller support
+        controllerProvider = new AndroidControllerProvider();
+        try{
+            ControllerSupport.setProvider(controllerProvider);
+            // NOTE: ControllerConfig.loadDefaults() must not run here - Core.settings does not
+            // exist yet at this point (it is loaded later by Control.load()).
+        }catch(Throwable t){
+            Log.err("Failed to init controller provider", t);
+        }
         if(doubleScaleTablets && isTablet(this)){
             Scl.setAddition(0.5f);
         }
@@ -322,6 +340,75 @@ public class AndroidLauncher extends AndroidApplication{
             Log.err(e);
         }
     }
+
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent event){
+        if(controllerProvider != null && controllerProvider.onGenericMotionEvent(event)){
+            return true;
+        }
+        return super.onGenericMotionEvent(event);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event){
+        boolean isGamepad = false;
+        if(event.getDevice() != null){
+            int sources = event.getDevice().getSources();
+            isGamepad = ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) || ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
+        }
+        if(isGamepad && controllerProvider != null && controllerProvider.onKeyEvent(event)){
+            return true;
+        }
+        // also check keycode range for gamepad
+        if((keyCode >= KeyEvent.KEYCODE_BUTTON_A && keyCode <= KeyEvent.KEYCODE_BUTTON_MODE) || (keyCode >= KeyEvent.KEYCODE_DPAD_UP && keyCode <= KeyEvent.KEYCODE_DPAD_RIGHT)){
+            if(controllerProvider != null && controllerProvider.onKeyEvent(event)) return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event){
+        if(controllerProvider != null && controllerProvider.onKeyEvent(event)){
+            // still let system handle back button if it's controller B mapped to back?
+            // Return true to consume gamepad events
+            int sources = event.getDevice() != null ? event.getDevice().getSources() : 0;
+            boolean isGamepad = ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) || ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
+            if(isGamepad || (keyCode >= KeyEvent.KEYCODE_BUTTON_A && keyCode <= KeyEvent.KEYCODE_BUTTON_MODE)) return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public boolean dispatchGenericMotionEvent(MotionEvent event){
+        if(controllerProvider != null && controllerProvider.onGenericMotionEvent(event)){
+            // Also forward to super so Arc's view gets it if needed, but we already consumed
+            // For joystick, we want to prevent touch handling, so return true
+            if((event.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) return true;
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event){
+        // intercept gamepad keys before dispatch
+        if(event.getDevice() != null){
+            int sources = event.getDevice().getSources();
+            boolean isGamepad = ((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) || ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
+            if(isGamepad && controllerProvider != null){
+                controllerProvider.onKeyEvent(event);
+                // Consume gamepad events to prevent them from triggering android back/menu actions incorrectly
+                // But allow BACK to still work as controller B alternative: we handle that via controller mapping
+                if(event.getKeyCode() != KeyEvent.KEYCODE_BACK && event.getKeyCode() != KeyEvent.KEYCODE_MENU){
+                    return true;
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    public static AndroidLauncher getInstance(){ return instance; }
+
+    public static AndroidControllerProvider getControllerProvider(){ return controllerProvider; }
 
     private boolean isTablet(Context context){
         TelephonyManager manager = (TelephonyManager)context.getSystemService(Context.TELEPHONY_SERVICE);

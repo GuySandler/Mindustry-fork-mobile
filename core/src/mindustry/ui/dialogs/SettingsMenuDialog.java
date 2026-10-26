@@ -36,6 +36,7 @@ public class SettingsMenuDialog extends BaseDialog{
     public SettingsTable game;
     public SettingsTable sound;
     public SettingsTable dev;
+    public SettingsTable controller;
     public SettingsTable main;
 
     private Table prefs;
@@ -63,6 +64,7 @@ public class SettingsMenuDialog extends BaseDialog{
                 graphics.rebuild();
                 sound.rebuild();
                 game.rebuild();
+                controller.rebuild();
                 dev.rebuild();
                 updateScrollFocus();
                 lastRebuildSize[0] = Core.graphics.getWidth();
@@ -80,6 +82,7 @@ public class SettingsMenuDialog extends BaseDialog{
         graphics = new SettingsTable();
         sound = new SettingsTable();
         dev = new SettingsTable();
+        controller = new SettingsTable();
 
         prefs = new Table();
         prefs.top();
@@ -344,10 +347,10 @@ public class SettingsMenuDialog extends BaseDialog{
         menu.button("@settings.game", Icon.settings, style, isize, () -> visible(0)).marginLeft(marg).row();
         menu.button("@settings.graphics", Icon.image, style, isize, () -> visible(1)).marginLeft(marg).row();
         menu.button("@settings.sound", Icon.volumeUp, style, isize, () -> visible(2)).marginLeft(marg).row();
+        menu.button("@settings.controller", Icon.move, style, isize, () -> visible(4)).marginLeft(marg).row();
         menu.button("@settings.language", Icon.chat, style, isize, ui.language::show).marginLeft(marg).row();
-        if(!mobile || Core.settings.getBool("keyboard")){
-            menu.button("@settings.controls", Icon.move, style, isize, ui.controls::show).marginLeft(marg).row();
-        }
+        // always show controls, even on mobile, so controller binds are accessible
+        menu.button("@settings.controls", Icon.move, style, isize, ui.controls::show).marginLeft(marg).row();
 
         menu.button("@settings.data", Icon.save, style, isize, () -> dataDialog.show()).marginLeft(marg).row();
         menu.button("@settings.dev", Icon.fileCode, style, isize, () -> visible(3)).marginLeft(marg).row();
@@ -365,6 +368,41 @@ public class SettingsMenuDialog extends BaseDialog{
     }
 
     void addSettings(){
+        // controller settings
+        controller.checkPref("controller.enabled", true, val -> {
+            control.updateControllerInput();
+        });
+        controller.sliderPref("controller.deadzone", 15, 0, 50, 1, i -> i + "%");
+        controller.sliderPref("controller.sensitivity", 100, 25, 200, 5, i -> i + "%");
+        controller.sliderPref("controller.cursorSpeed", 100, 25, 200, 5, i -> i + "%");
+        controller.sliderPref("controller.triggerThreshold", 15, 0, 50, 1, i -> i + "%");
+        controller.checkPref("controller.invertY", false);
+        controller.checkPref("controller.vibration", true);
+        controller.checkPref("controller.showCursor", true);
+        controller.checkPref("controller.aimAssist", false);
+        // button to open controller keybinds + test
+        controller.pref(new SettingsTable.Setting("controller.binds"){
+            @Override
+            public void add(SettingsTable table){
+                table.button(bundle.get("settings.controller.binds", "Controller Bindings"), () -> ui.controls.show()).width(320f).height(60f).pad(6f).row();
+                table.button("Test Controller", Icon.move, () -> ui.controllerTest.show()).width(320f).height(60f).pad(6f).row();
+                // status indicator
+                table.label(() -> {
+                    boolean con = mindustry.input.controller.ControllerSupport.isConnected();
+                    String name = con ? mindustry.input.controller.ControllerSupport.getProvider().getName() : bundle.get("controller.disconnected", "No Controller");
+                    return bundle.format("controller.status", con ? "[accent]" + name : "[lightgray]" + name);
+                }).pad(6f).row();
+                table.label(() -> "[lightgray]A=Confirm  B=Back  D-pad/LS=Navigate  RS=Scroll/Adjust").pad(4f).row();
+            }
+        });
+        // preset selector
+        controller.sliderPref("controller.preset", 0, 0, 2, 1, i -> {
+            if(i == 0) return "Default";
+            if(i == 1) return "Southpaw";
+            if(i == 2) return "Legacy";
+            return "Custom";
+        });
+
         sound.checkPref("alwaysmusic", false);
         sound.sliderPref("musicvol", 100, 0, 100, 1, i -> i + "%");
         sound.sliderPref("sfxvol", 100, 0, 100, 1, i -> i + "%");
@@ -375,11 +413,18 @@ public class SettingsMenuDialog extends BaseDialog{
         if(mobile){
             game.checkPref("autotarget", true);
             game.checkPref("keyboard", false, val -> {
-                control.setInput(val ? new DesktopInput() : new MobileInput());
+                // use controller-capable inputs when controller enabled
+                boolean ctrlEnabled = Core.settings.getBool("controller.enabled", true);
+                if(val){
+                    control.setInput(ctrlEnabled ? new mindustry.input.controller.ControllerDesktopInput() : new DesktopInput());
+                }else{
+                    control.setInput(ctrlEnabled ? new mindustry.input.controller.ControllerInput() : new MobileInput());
+                }
                 input.setUseKeyboard(val);
             });
             if(Core.settings.getBool("keyboard")){
-                control.setInput(new DesktopInput());
+                boolean ctrlEnabled = Core.settings.getBool("controller.enabled", true);
+                control.setInput(ctrlEnabled ? new mindustry.input.controller.ControllerDesktopInput() : new DesktopInput());
                 input.setUseKeyboard(true);
             }
 
@@ -649,7 +694,7 @@ public class SettingsMenuDialog extends BaseDialog{
         prefs.clearChildren();
 
         Seq<Table> tables = new Seq<>();
-        tables.addAll(game, graphics, sound, dev);
+        tables.addAll(game, graphics, sound, dev, controller);
         for(var custom : categories){
             tables.add(custom.table);
         }

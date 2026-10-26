@@ -106,7 +106,39 @@ public class Binding{
     chatMode = KeyBind.add("chat_mode", KeyCode.tab),
     console = KeyBind.add("console", KeyCode.f8),
     debugHitboxes = KeyBind.add("debug_hitboxes", KeyCode.unset),
-    performanceMetrics = KeyBind.add("performance_metrics", KeyCode.unset)
+    performanceMetrics = KeyBind.add("performance_metrics", KeyCode.unset),
+
+    // controller bindings
+    controllerMoveX = KeyBind.add("controller_move_x", new Axis(KeyCode.controllerLStickXAxis), "controller"),
+    controllerMoveY = KeyBind.add("controller_move_y", new Axis(KeyCode.controllerLStickYAxis)),
+    controllerAimX = KeyBind.add("controller_aim_x", new Axis(KeyCode.controllerRStickXAxis)),
+    controllerAimY = KeyBind.add("controller_aim_y", new Axis(KeyCode.controllerRStickYAxis)),
+    controllerShoot = KeyBind.add("controller_shoot", KeyCode.controllerRTrigger),
+    controllerShootAlt = KeyBind.add("controller_shoot_alt", KeyCode.controllerA),
+    controllerBreak = KeyBind.add("controller_break", KeyCode.controllerLTrigger),
+    controllerBreakAlt = KeyBind.add("controller_break_alt", KeyCode.controllerB),
+    controllerBoost = KeyBind.add("controller_boost", KeyCode.controllerLBumper),
+    controllerZoomIn = KeyBind.add("controller_zoom_in", KeyCode.controllerRBumper),
+    controllerZoomOut = KeyBind.add("controller_zoom_out", KeyCode.controllerLBumper),
+    controllerPickup = KeyBind.add("controller_pickup", KeyCode.controllerX),
+    controllerDrop = KeyBind.add("controller_drop", KeyCode.controllerY),
+    controllerCommandMode = KeyBind.add("controller_command_mode", KeyCode.controllerY),
+    controllerCommandQueue = KeyBind.add("controller_command_queue", KeyCode.controllerLStick),
+    controllerSelect = KeyBind.add("controller_select", KeyCode.controllerA),
+    controllerBack = KeyBind.add("controller_back", KeyCode.controllerB),
+    controllerPause = KeyBind.add("controller_pause", KeyCode.controllerStart),
+    controllerMap = KeyBind.add("controller_map", KeyCode.controllerBack),
+    controllerDpadUp = KeyBind.add("controller_dpad_up", KeyCode.controllerdPadUp),
+    controllerDpadDown = KeyBind.add("controller_dpad_down", KeyCode.controllerdPadDown),
+    controllerDpadLeft = KeyBind.add("controller_dpad_left", KeyCode.controllerdPadLeft),
+    controllerDpadRight = KeyBind.add("controller_dpad_right", KeyCode.controllerdPadRight),
+    controllerRotate = KeyBind.add("controller_rotate", KeyCode.controllerRStick),
+    controllerCategoryNext = KeyBind.add("controller_category_next", KeyCode.controllerdPadRight),
+    controllerCategoryPrev = KeyBind.add("controller_category_prev", KeyCode.controllerdPadLeft),
+    controllerBlockLeft = KeyBind.add("controller_block_left", KeyCode.controllerdPadLeft),
+    controllerBlockRight = KeyBind.add("controller_block_right", KeyCode.controllerdPadRight),
+    controllerBlockUp = KeyBind.add("controller_block_up", KeyCode.controllerdPadUp),
+    controllerBlockDown = KeyBind.add("controller_block_down", KeyCode.controllerdPadDown)
     ;
 
     //dummy static class initializer

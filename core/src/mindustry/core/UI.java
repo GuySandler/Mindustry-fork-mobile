@@ -62,6 +62,7 @@ public class UI implements ApplicationListener, Loadable{
     public PausedDialog paused;
     public SettingsMenuDialog settings;
     public KeybindDialog controls;
+    public ControllerTestDialog controllerTest;
     public MapEditorDialog editor;
     public LanguageDialog language;
     public BansDialog bans;
@@ -202,6 +203,7 @@ public class UI implements ApplicationListener, Loadable{
         effects = new EffectsDialog();
         editor = new MapEditorDialog();
         controls = new KeybindDialog();
+        controllerTest = new ControllerTestDialog();
         restart = new GameOverDialog();
         join = new JoinDialog();
         discord = new DiscordDialog();

@@ -369,17 +369,67 @@ public class Control implements ApplicationListener, Loadable{
 
         player.color.set(Core.settings.getInt("color-0"));
 
+        // load controller defaults
+        mindustry.input.controller.ControllerConfig.loadDefaults();
+
+        // create appropriate input handler with controller support
         if(mobile){
-            input = new MobileInput();
+            // use controller-capable mobile input when controller enabled
+            if(Core.settings.getBool(mindustry.input.controller.ControllerConfig.ENABLED, true)){
+                input = new mindustry.input.controller.ControllerInput();
+            }else{
+                input = new MobileInput();
+            }
         }else{
-            input = new DesktopInput();
+            if(Core.settings.getBool(mindustry.input.controller.ControllerConfig.ENABLED, true)){
+                input = new mindustry.input.controller.ControllerDesktopInput();
+            }else{
+                input = new DesktopInput();
+            }
         }
+
+        // allow dynamic switching when keyboard setting toggles
+        // also listen for controller enable changes
+        Events.on(ClientLoadEvent.class, e -> {
+            input.add();
+            // initialize controller provider if not already (android will override)
+            if(!Vars.mobile || !Core.app.isAndroid()){
+                // desktop or non-android mobile: ensure default provider is set
+                mindustry.input.controller.ControllerSupport.setProvider(new mindustry.input.controller.DefaultControllerProvider());
+            }
+        });
 
         if(state.isGame()){
             player.add();
         }
+    }
 
-        Events.on(ClientLoadEvent.class, e -> input.add());
+    /** Switches input handler to controller or standard based on settings */
+    public void updateControllerInput(){
+        boolean wantController = Core.settings.getBool(mindustry.input.controller.ControllerConfig.ENABLED, true);
+        boolean isControllerInput = input instanceof mindustry.input.controller.ControllerInput || input instanceof mindustry.input.controller.ControllerDesktopInput;
+        boolean useKeyboard = Core.settings.getBool("keyboard", false);
+        if(wantController && !isControllerInput){
+            if(mobile){
+                if(useKeyboard){
+                    setInput(new mindustry.input.controller.ControllerDesktopInput());
+                }else{
+                    setInput(new mindustry.input.controller.ControllerInput());
+                }
+            }else{
+                setInput(new mindustry.input.controller.ControllerDesktopInput());
+            }
+        }else if(!wantController && isControllerInput){
+            if(mobile){
+                if(useKeyboard){
+                    setInput(new DesktopInput());
+                }else{
+                    setInput(new MobileInput());
+                }
+            }else{
+                setInput(new DesktopInput());
+            }
+        }
     }
 
     public void setInput(InputHandler newInput){
@@ -675,6 +725,25 @@ public class Control implements ApplicationListener, Loadable{
         //this happens on Android and nobody knows why
         if(assets == null) return;
 
+        // poll controller support global
+        try{
+            mindustry.input.controller.ControllerSupport.update();
+            mindustry.input.controller.ControllerNavigator.update();
+            // handle controller menu inputs even when not in game (pause toggle via controller)
+            if(mindustry.input.controller.ControllerSupport.isEnabled() && mindustry.input.controller.ControllerSupport.isConnected()){
+                if(Core.input.keyTap(mindustry.input.Binding.controllerPause) || mindustry.input.controller.ControllerSupport.isTapped(arc.input.KeyCode.controllerStart) || mindustry.input.controller.ControllerSupport.isTapped(arc.input.KeyCode.buttonStart)){
+                    if(state.isGame() && !state.isPaused() && !scene.hasDialog() && !ui.restart.isShown()){
+                        if(!net.active() && !state.rules.pauseDisabled){
+                            state.set(GameState.State.paused);
+                            ui.paused.show();
+                        }
+                    }
+                }
+            }
+        }catch(Throwable t){
+            if(mindustry.input.controller.ControllerNavigator.debug) arc.util.Log.err("[CtrlNav] tick failed: @", t);
+        }
+
         saves.update();
 
         //update and load any requested assets
@@ -743,7 +812,7 @@ public class Control implements ApplicationListener, Loadable{
                 state.set(State.paused);
             }
 
-            if((input instanceof DesktopInput ? Core.input.keyTap(Binding.menu) : Core.input.keyTap(KeyCode.back)) && !ui.restart.isShown() && !ui.minimapfrag.shown()){
+            if((input instanceof DesktopInput ? Core.input.keyTap(Binding.menu) : Core.input.keyTap(KeyCode.back) || mindustry.input.controller.ControllerSupport.isTapped(arc.input.KeyCode.controllerStart) || mindustry.input.controller.ControllerSupport.isTapped(arc.input.KeyCode.controllerB)) && !ui.restart.isShown() && !ui.minimapfrag.shown()){
                 if(ui.chatfrag.shown()){
                     ui.chatfrag.hide();
                 }else if(!ui.paused.isShown() && !scene.hasDialog()){
